@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contract Vetting</title>
+<style>
+  :root{
+    --paper:#FAF8F3;
+    --ink:#1A2421;
+    --ledger:#0E5A3C;
+    --loss:#B3392E;
+    --warn:#C07A1B;
+    --line:#D8D2C4;
+    --muted:#6F6A5C;
+    --card:#FFFFFF;
+    --accent-soft:#E8F1EC;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:Georgia,'Times New Roman',serif;
+    min-height:100vh;
+    padding:32px 16px 64px;
+  }
+  .mono{font-family:'SF Mono','Cascadia Mono','Consolas',monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1100px;margin:0 auto}
+
+  /* nav */
+  .nav{
+    display:flex;border:1px solid var(--ink);border-radius:4px;overflow:hidden;
+    width:fit-content;margin-bottom:28px;
+  }
+  .nav a{
+    padding:9px 20px;text-decoration:none;color:var(--ink);background:var(--card);
+    font-family:'SF Mono','Cascadia Mono','Consolas',monospace;font-size:13px;
+    border-right:1px solid var(--ink);
+  }
+  .nav a:last-child{border-right:none}
+  .nav a.active{background:var(--ink);color:var(--paper)}
+  .nav a:hover:not(.active){background:var(--accent-soft)}
+
+  header{border-bottom:3px double var(--ink);padding-bottom:18px;margin-bottom:28px}
+  header h1{font-size:clamp(26px,4.5vw,38px);font-weight:700;letter-spacing:-0.01em}
+  header p{color:var(--muted);margin-top:6px;font-size:15px;font-style:italic}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:22px;margin-bottom:18px}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);font-family:'SF Mono','Consolas',monospace;margin-bottom:16px;font-weight:600}
+
+  /* setup row */
+  .controls{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end}
+  .controls > div{display:flex;flex-direction:column}
+  .ctrl-label{font-size:13px;color:var(--ink);font-weight:600;margin-bottom:5px}
+
+  .toggle{display:flex;gap:0;border:1px solid var(--ink);border-radius:4px;overflow:hidden;width:fit-content}
+  .toggle button{
+    padding:7px 18px;border:none;background:var(--card);
+    font-family:'SF Mono','Consolas',monospace;font-size:13px;cursor:pointer;color:var(--ink);
+  }
+  .toggle button.active{background:var(--ink);color:var(--paper)}
+  .toggle button:focus-visible{outline:2px solid var(--ledger);outline-offset:-2px}
+
+  .field input{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;
+    font-family:'SF Mono','Consolas',monospace;font-size:16px;background:var(--paper);
+    color:var(--ink);
+  }
+  .field input:focus{outline:2px solid var(--ledger);outline-offset:1px;border-color:var(--ledger)}
+
+  /* contract inputs grid */
+  .inputs{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-bottom:6px}
+  @media(max-width:900px){.inputs{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:560px){.inputs{grid-template-columns:repeat(2,1fr)}}
+  .inputs .field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+
+  /* ledger stats */
+  .ledger{border-top:1px solid var(--ink);margin-top:18px;margin-bottom:18px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;padding:11px 2px;border-bottom:1px dotted var(--line)}
+  .row .k{font-size:14px}
+  .row .k small{display:block;color:var(--muted);font-size:11.5px;font-style:italic;margin-top:2px}
+  .row .v{font-size:19px;font-weight:700}
+  .pos{color:var(--ledger)} .neg{color:var(--loss)} .mid{color:var(--warn)}
+
+  /* checks */
+  .checks{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+  .check{
+    display:flex;gap:12px;padding:12px 14px;border-radius:4px;
+    border-left:5px solid var(--line);background:var(--paper);align-items:flex-start;
+  }
+  .check.ok{border-left-color:var(--ledger);background:var(--accent-soft)}
+  .check.bad{border-left-color:var(--loss);background:#F9ECEA}
+  .check-box{
+    flex-shrink:0;width:22px;height:22px;border-radius:3px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'SF Mono','Consolas',monospace;font-weight:700;font-size:13px;
+  }
+  .check.ok .check-box{background:var(--ledger);color:var(--paper)}
+  .check.bad .check-box{background:var(--loss);color:var(--paper)}
+  .check-body{flex:1}
+  .check-l{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .check-d{font-size:12.5px;color:var(--muted);font-style:italic;margin-top:3px;font-family:'SF Mono','Consolas',monospace}
+  .ideal{
+    font-family:'SF Mono','Consolas',monospace;font-size:10px;font-weight:700;
+    letter-spacing:0.1em;color:var(--ledger);padding:1px 6px;
+    border:1px solid var(--ledger);border-radius:2px;
+  }
+
+  /* verdict */
+  .verdict{
+    padding:16px 18px;border-radius:4px;font-size:15px;line-height:1.55;
+    border-left:5px solid var(--ledger);background:var(--accent-soft);
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .verdict.warn{border-left-color:var(--warn);background:#FBF3E4}
+  .verdict.danger{border-left-color:var(--loss);background:#F9ECEA}
+  .verdict.idle{border-left-color:var(--muted);background:var(--paper)}
+  .verdict strong{display:block;font-size:16px;margin-bottom:3px}
+  .verdict-body{font-size:13.5px;color:var(--ink)}
+  .del{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:26px;line-height:1;padding:0 6px}
+  .del:hover{color:var(--loss)}
+
+  .add{
+    padding:11px 22px;border-radius:4px;cursor:pointer;background:var(--card);
+    border:1px dashed var(--ink);color:var(--ink);
+    font-family:'SF Mono','Consolas',monospace;font-size:13px;font-weight:600;
+  }
+  .add:hover{background:var(--accent-soft)}
+
+  .footnote{margin-top:26px;font-size:12.5px;color:var(--muted);font-style:italic;line-height:1.6;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav">
+    <a href="contract-vetting.html" class="active">Contract Vetting</a>
+    <a href="put-assignment-calculator.html">Put Assignment</a>
+  </nav>
+
+  <header>
+    <h1>Contract Vetting</h1>
+    <p>Value, liquidity, go/no-go — runs each contract through the full liquidity criteria and gives a verdict at the end</p>
+  </header>
+
+  <section class="panel">
+    <h2>Setup</h2>
+    <div class="controls">
+      <div>
+        <span class="ctrl-label">Option type</span>
+        <div class="toggle" role="tablist" aria-label="Option type">
+          <button class="active" id="t-call">CALL</button>
+          <button id="t-put">PUT</button>
+        </div>
+      </div>
+      <div class="field" style="min-width:220px">
+        <label for="price" class="ctrl-label">Current stock price ($)</label>
+        <input type="number" id="price" step="0.01" value="189.37" inputmode="decimal">
+      </div>
+    </div>
+  </section>
+
+  <div id="cards"></div>
+
+  <button class="add" id="add">+ Add contract</button>
+
+  <p class="footnote">
+    GOATED limit = (Ask × 0.1) + Bid — keeps your effective spread at the 10% line when it's slightly over.
+    A GO requires every hard criterion (DTE, OI, spread, extrinsic); delta is a target you flex to find liquidity.
+    Educational tool, not financial advice.
+  </p>
+</div>
+
+<script>
+  let optType = 'call';
+  let nextId = 2;
+  let rows = [
+    { id:1, ticker:'NVDA', strike:'170', bid:'21.95', ask:'22.10', oi:'12475', dte:'35', delta:'0.82' }
+  ];
+
+  const FIELDS = [
+    {label:'Ticker',    k:'ticker', text:true},
+    {label:'Strike ($)', k:'strike'},
+    {label:'Bid ($)',    k:'bid'},
+    {label:'Ask ($)',    k:'ask'},
+    {label:'Open Int',   k:'oi'},
+    {label:'DTE',        k:'dte'},
+    {label:'Delta',      k:'delta'}
+  ];
+
+  function n(v){ const x = parseFloat(v); return isNaN(x) ? 0 : x; }
+  function usd(x){ return '$' + x.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+  function vet(row, price){
+    const k=n(row.strike), bid=n(row.bid), ask=n(row.ask), oi=n(row.oi), dte=n(row.dte), delta=n(row.delta);
+    const intrinsic = optType==='call' ? Math.max(0, price-k) : Math.max(0, k-price);
+    const extrinsic = Math.max(0, ask-intrinsic);
+    const extPct = ask>0 ? (extrinsic/ask)*100 : 0;
+    const spreadPct = ask>0 ? ((ask-bid)/ask)*100 : 0;
+    const limit = ask*0.1 + bid;
+    const filled = row.strike && row.ask;
+    const checks = [
+      { label:'30+ days to expiration', ok:dte>=30, detail:dte+' DTE — go further out if liquidity is thin' },
+      { label:'200+ open interest', ok:oi>=200, detail:oi.toLocaleString()+' OI (want 200+ all the way down the chain)' },
+      { label:'≤10% bid/ask spread', ok:spreadPct<=10, detail:spreadPct.toFixed(2)+'% spread'+(spreadPct>10?(' — use limit @ '+usd(limit)):'') },
+      { label:'≤30% extrinsic', ok:extPct<=30, ideal:extPct<=20, detail:extPct.toFixed(0)+'% time value — this is what decays' },
+      { label:'~80 delta', ok:delta>=0.7&&delta<=0.9, ideal:delta>=0.78&&delta<=0.85, detail:delta.toFixed(2)+' delta — aim 0.80, then move to find liquidity' }
+    ];
+    const hardPass = checks.filter((c,i)=>i!==4).every(c=>c.ok);
+    const allPass = checks.every(c=>c.ok);
+    return { intrinsic, extrinsic, extPct, spreadPct, limit, checks, hardPass, allPass, filled };
+  }
+
+  // Build the card skeleton ONCE per row. Inputs live here and are never
+  // rebuilt while typing — only the .outputs block is refreshed, so the
+  // cursor stays exactly where you're typing.
+  function buildCards(){
+    const cards = document.getElementById('cards');
+    cards.innerHTML = '';
+    rows.forEach(row => {
+      const card = document.createElement('section');
+      card.className = 'panel';
+
+      const head = document.createElement('h2');
+      head.textContent = 'Contract' + (row.ticker ? ' · ' + row.ticker.toUpperCase() : '');
+      card.appendChild(head);
+
+      const inputs = document.createElement('div');
+      inputs.className = 'inputs';
+      FIELDS.forEach(f => {
+        const wrap = document.createElement('div');
+        wrap.className = 'field';
+        const lbl = document.createElement('label');
+        lbl.textContent = f.label;
+        const inp = document.createElement('input');
+        inp.type = f.text ? 'text' : 'number';
+        if(!f.text) inp.step = '0.01';
+        inp.value = row[f.k];
+        inp.inputMode = f.text ? 'text' : 'decimal';
+        inp.addEventListener('input', () => {
+          row[f.k] = inp.value;
+          if(f.k==='ticker') head.textContent = 'Contract' + (row.ticker ? ' · ' + row.ticker.toUpperCase() : '');
+          refresh();
+        });
+        wrap.appendChild(lbl);
+        wrap.appendChild(inp);
+        inputs.appendChild(wrap);
+      });
+      card.appendChild(inputs);
+
+      const outputs = document.createElement('div');
+      outputs.className = 'outputs';
+      card.appendChild(outputs);
+
+      cards.appendChild(card);
+      row._outputs = outputs;
+    });
+    refresh();
+  }
+
+  // Recompute and rewrite only the derived display — inputs are untouched.
+  function refresh(){
+    const price = n(document.getElementById('price').value);
+    rows.forEach(row => {
+      const r = vet(row, price);
+
+      let vClass, vTitle, vBody;
+      if(!r.filled){
+        vClass = 'idle';
+        vTitle = 'Awaiting input';
+        vBody  = 'Fill in strike and ask to vet this contract.';
+      } else if(r.allPass){
+        vClass = '';
+        vTitle = 'GO — meets all criteria';
+        vBody  = 'Every hard liquidity criterion passes and delta is on target.';
+      } else if(r.hardPass){
+        vClass = 'warn';
+        vTitle = 'GO — delta off target';
+        vBody  = 'Hard criteria pass; delta is off ~80. Acceptable if liquidity is best at this strike.';
+      } else {
+        vClass = 'danger';
+        vTitle = 'NO-GO — failed a hard criterion';
+        vBody  = 'A hard criterion (DTE, OI, spread, or extrinsic) failed. Adjust or find a better contract.';
+      }
+
+      const extCls    = r.extPct<=20 ? 'pos' : r.extPct<=30 ? 'mid' : 'neg';
+      const spreadCls = r.spreadPct<=10 ? 'pos' : 'neg';
+      const intrinFormula = optType==='call' ? 'max(stock − strike, 0)' : 'max(strike − stock, 0)';
+
+      let html = '';
+
+      // ledger stats
+      html += '<div class="ledger">'
+        +   '<div class="row"><div class="k">Intrinsic value<small>'+intrinFormula+'</small></div>'
+        +     '<div class="v mono pos">'+usd(r.intrinsic)+'</div></div>'
+        +   '<div class="row"><div class="k">Extrinsic value<small>ask − intrinsic · the time value priced in</small></div>'
+        +     '<div class="v mono '+extCls+'">'+usd(r.extrinsic)+' · '+r.extPct.toFixed(0)+'%</div></div>'
+        +   '<div class="row"><div class="k">Bid/ask spread<small>(ask − bid) / ask</small></div>'
+        +     '<div class="v mono '+spreadCls+'">'+r.spreadPct.toFixed(2)+'%</div></div>'
+        +   '<div class="row"><div class="k">GOATED limit<small>(ask × 0.1) + bid — set your limit at this</small></div>'
+        +     '<div class="v mono">'+usd(r.limit)+'</div></div>'
+        + '</div>';
+
+      // checks
+      html += '<div class="checks">';
+      r.checks.forEach(c => {
+        const cls = c.ok ? 'ok' : 'bad';
+        const sym = c.ok ? '✓' : '✕';
+        html += '<div class="check '+cls+'">'
+          + '<div class="check-box">'+sym+'</div>'
+          + '<div class="check-body">'
+          +   '<div class="check-l">'+c.label+(c.ideal?'<span class="ideal">IDEAL</span>':'')+'</div>'
+          +   '<div class="check-d">'+c.detail+'</div>'
+          + '</div></div>';
+      });
+      html += '</div>';
+
+      // verdict
+      html += '<div class="verdict '+vClass+'">'
+        + '<div><strong>'+vTitle+'</strong><div class="verdict-body">'+vBody+'</div></div>'
+        + (rows.length>1 ? '<button class="del" data-del="'+row.id+'" title="Remove contract">×</button>' : '')
+        + '</div>';
+
+      row._outputs.innerHTML = html;
+    });
+  }
+
+  document.getElementById('cards').addEventListener('click', e => {
+    const d = e.target.dataset ? e.target.dataset.del : null;
+    if(d){ rows = rows.filter(x => x.id !== parseInt(d,10)); buildCards(); }
+  });
+  document.getElementById('price').addEventListener('input', refresh);
+  document.getElementById('add').addEventListener('click', () => {
+    rows.push({ id:nextId++, ticker:'', strike:'', bid:'', ask:'', oi:'', dte:'', delta:'' });
+    buildCards();
+  });
+  document.getElementById('t-call').addEventListener('click', function(){
+    optType='call'; this.classList.add('active'); document.getElementById('t-put').classList.remove('active'); refresh();
+  });
+  document.getElementById('t-put').addEventListener('click', function(){
+    optType='put'; this.classList.add('active'); document.getElementById('t-call').classList.remove('active'); refresh();
+  });
+
+  buildCards();
+</script>
+</body>
+</html>

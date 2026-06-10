@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Put Assignment Calculator</title>
+<style>
+  :root{
+    --paper:#FAF8F3;
+    --ink:#1A2421;
+    --ledger:#0E5A3C;
+    --loss:#B3392E;
+    --warn:#C07A1B;
+    --line:#D8D2C4;
+    --muted:#6F6A5C;
+    --card:#FFFFFF;
+    --accent-soft:#E8F1EC;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:Georgia,'Times New Roman',serif;
+    min-height:100vh;
+    padding:32px 16px 64px;
+  }
+  .mono{font-family:'SF Mono','Cascadia Mono','Consolas',monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1100px;margin:0 auto}
+
+  /* nav */
+  .nav{
+    display:flex;border:1px solid var(--ink);border-radius:4px;overflow:hidden;
+    width:fit-content;margin-bottom:28px;
+  }
+  .nav a{
+    padding:9px 20px;text-decoration:none;color:var(--ink);background:var(--card);
+    font-family:'SF Mono','Cascadia Mono','Consolas',monospace;font-size:13px;
+    border-right:1px solid var(--ink);
+  }
+  .nav a:last-child{border-right:none}
+  .nav a.active{background:var(--ink);color:var(--paper)}
+  .nav a:hover:not(.active){background:var(--accent-soft)}
+
+  header{border-bottom:3px double var(--ink);padding-bottom:18px;margin-bottom:28px}
+  header h1{font-size:clamp(26px,4.5vw,38px);font-weight:700;letter-spacing:-0.01em}
+  header p{color:var(--muted);margin-top:6px;font-size:15px;font-style:italic}
+
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:24px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:22px}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);font-family:'SF Mono','Consolas',monospace;margin-bottom:16px;font-weight:600}
+
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:13px;color:var(--ink);margin-bottom:5px;font-weight:600}
+  .field .hint{font-size:11.5px;color:var(--muted);margin-top:3px;font-style:italic}
+  .field input{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;
+    font-family:'SF Mono','Consolas',monospace;font-size:16px;background:var(--paper);
+    color:var(--ink);
+  }
+  .field input:focus{outline:2px solid var(--ledger);outline-offset:1px;border-color:var(--ledger)}
+
+  /* ledger rows */
+  .ledger{border-top:1px solid var(--ink)}
+  .row{display:flex;justify-content:space-between;align-items:baseline;padding:11px 2px;border-bottom:1px dotted var(--line)}
+  .row .k{font-size:14px}
+  .row .k small{display:block;color:var(--muted);font-size:11.5px;font-style:italic;margin-top:2px}
+  .row .v{font-size:19px;font-weight:700}
+  .row.big .v{font-size:26px}
+  .pos{color:var(--ledger)} .neg{color:var(--loss)} .mid{color:var(--warn)}
+
+  /* cushion gauge — the signature element */
+  .gauge-wrap{margin:26px 0 8px}
+  .gauge-title{display:flex;justify-content:space-between;font-family:'SF Mono','Consolas',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);margin-bottom:8px}
+  .gauge{position:relative;height:34px;border:1px solid var(--ink);border-radius:3px;background:
+    linear-gradient(90deg,var(--loss) 0%,var(--loss) 12%,var(--warn) 12%,var(--warn) 30%,var(--ledger) 30%,var(--ledger) 100%);
+    opacity:0.92}
+  .gauge .needle{
+    position:absolute;top:-7px;bottom:-7px;width:3px;background:var(--ink);border-radius:2px;
+    transition:left 0.45s cubic-bezier(.22,1,.36,1);
+  }
+  .gauge .needle::after{
+    content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);
+    border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--ink);
+  }
+  .gauge-scale{display:flex;justify-content:space-between;font-family:'SF Mono','Consolas',monospace;font-size:10.5px;color:var(--muted);margin-top:6px}
+
+  .verdict{
+    margin-top:18px;padding:16px 18px;border-radius:4px;font-size:15px;line-height:1.55;
+    border-left:5px solid var(--ledger);background:var(--accent-soft);
+  }
+  .verdict.warn{border-left-color:var(--warn);background:#FBF3E4}
+  .verdict.danger{border-left-color:var(--loss);background:#F9ECEA}
+  .verdict strong{display:block;margin-bottom:4px;font-size:16px}
+
+  .error-note{
+    margin-top:14px;padding:12px 14px;background:#F9ECEA;border:1px solid var(--loss);
+    border-radius:4px;font-size:13.5px;color:var(--loss);display:none;line-height:1.5;
+  }
+
+  .footnote{margin-top:26px;font-size:12.5px;color:var(--muted);font-style:italic;line-height:1.6;border-top:1px solid var(--line);padding-top:14px}
+
+  .toggle{display:flex;gap:0;margin-bottom:20px;border:1px solid var(--ink);border-radius:4px;overflow:hidden;width:fit-content}
+  .toggle button{
+    padding:7px 18px;border:none;background:var(--card);font-family:'SF Mono','Consolas',monospace;
+    font-size:13px;cursor:pointer;color:var(--ink);
+  }
+  .toggle button.active{background:var(--ink);color:var(--paper)}
+  .toggle button:focus-visible{outline:2px solid var(--ledger);outline-offset:-2px}
+
+  @media (prefers-reduced-motion: reduce){ .gauge .needle{transition:none} }
+
+  /* explanation section */
+  .explain{margin-top:28px}
+  .explain .panel{padding:26px}
+  .lang-toggle{display:flex;gap:0;border:1px solid var(--ink);border-radius:4px;overflow:hidden;width:fit-content;margin-bottom:20px}
+  .lang-toggle button{padding:7px 18px;border:none;background:var(--card);font-family:'SF Mono','Consolas',monospace;font-size:13px;cursor:pointer;color:var(--ink)}
+  .lang-toggle button.active{background:var(--ink);color:var(--paper)}
+  .lang-toggle button:focus-visible{outline:2px solid var(--ledger);outline-offset:-2px}
+  .explain h3{font-size:19px;margin:20px 0 8px;letter-spacing:-0.01em}
+  .explain h3:first-of-type{margin-top:0}
+  .explain p{font-size:15px;line-height:1.7;color:var(--ink);margin-bottom:10px}
+  .explain .formula{font-family:'SF Mono','Consolas',monospace;font-size:14px;background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:8px 12px;display:inline-block;margin:4px 0 10px}
+  .zones{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  @media(max-width:640px){.zones{grid-template-columns:1fr}}
+  .zone{border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6}
+  .zone strong{display:block;font-size:15px;margin-bottom:5px}
+  .zone.safe{background:var(--accent-soft);border-left:5px solid var(--ledger)}
+  .zone.caution{background:#FBF3E4;border-left:5px solid var(--warn)}
+  .zone.danger{background:#F9ECEA;border-left:5px solid var(--loss)}
+  [data-lang]{display:none}
+  [data-lang].show{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav">
+    <a href="contract-vetting.html">Contract Vetting</a>
+    <a href="put-assignment-calculator.html" class="active">Put Assignment</a>
+  </nav>
+
+  <header>
+    <h1>Put Assignment Calculator</h1>
+    <p>Intrinsic &amp; extrinsic value, breakeven, and early-assignment risk for short cash-secured puts</p>
+  </header>
+
+  <div class="grid">
+    <!-- INPUTS -->
+    <section class="panel">
+      <h2>Position Inputs</h2>
+
+      <div class="toggle" role="tablist" aria-label="Option type">
+        <button id="btnPut" class="active" onclick="setType('put')">PUT</button>
+        <button id="btnCall" onclick="setType('call')">CALL</button>
+      </div>
+
+      <div class="field">
+        <label for="stock">Current stock price ($)</label>
+        <input type="number" id="stock" step="0.01" value="203.67" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="strike">Strike price ($)</label>
+        <input type="number" id="strike" step="0.01" value="213" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="bid">Option bid ($)</label>
+        <input type="number" id="bid" step="0.01" value="7.80" inputmode="decimal">
+        <div class="hint">Use the bid — it's what a holder could sell for instead of exercising</div>
+      </div>
+      <div class="field">
+        <label for="premium">Premium you collected ($)</label>
+        <input type="number" id="premium" step="0.01" value="9.77" inputmode="decimal">
+        <div class="hint">Per share, when you opened the short position</div>
+      </div>
+      <div class="field">
+        <label for="expiry">Expiration date</label>
+        <input type="date" id="expiry" value="2026-06-18">
+      </div>
+    </section>
+
+    <!-- RESULTS -->
+    <section class="panel">
+      <h2>Ledger</h2>
+      <div class="ledger">
+        <div class="row">
+          <div class="k">Moneyness<small id="moneyDesc"></small></div>
+          <div class="v mono" id="moneyness">—</div>
+        </div>
+        <div class="row">
+          <div class="k">Intrinsic value<small id="intrinsicFormula"></small></div>
+          <div class="v mono" id="intrinsic">—</div>
+        </div>
+        <div class="row big">
+          <div class="k">Extrinsic value<small>bid − intrinsic · the assignment cushion</small></div>
+          <div class="v mono" id="extrinsic">—</div>
+        </div>
+        <div class="row">
+          <div class="k">Breakeven<small id="beFormula"></small></div>
+          <div class="v mono" id="breakeven">—</div>
+        </div>
+        <div class="row">
+          <div class="k">Distance to breakeven<small>stock price vs breakeven</small></div>
+          <div class="v mono" id="distance">—</div>
+        </div>
+        <div class="row">
+          <div class="k">P/L if closed at bid<small>(premium − bid) × 100, per contract</small></div>
+          <div class="v mono" id="pl">—</div>
+        </div>
+        <div class="row">
+          <div class="k">Days to expiry</div>
+          <div class="v mono" id="dte">—</div>
+        </div>
+      </div>
+
+      <div class="error-note" id="arbNote">
+        ⚠ Extrinsic is negative — impossible in a live market. Your stock price and option quote are from different moments. Re-check both at the same time.
+      </div>
+
+      <div class="gauge-wrap">
+        <div class="gauge-title"><span>Assignment cushion</span><span id="gaugeLabel">—</span></div>
+        <div class="gauge"><div class="needle" id="needle" style="left:80%"></div></div>
+        <div class="gauge-scale"><span>$0.00 · exercise zone</span><span>$0.50</span><span>$3.00+ · safe</span></div>
+      </div>
+
+      <div class="verdict" id="verdict">
+        <strong>—</strong>
+        <span></span>
+      </div>
+
+      <div class="footnote">
+        Rule of thumb: a holder exercising early forfeits all extrinsic value, so early assignment only becomes rational
+        when extrinsic falls under roughly $0.10–0.20. At expiration, any in-the-money option is assigned automatically.
+        This tool covers mechanics only — it isn't financial advice.
+      </div>
+    </section>
+  </div>
+
+  <!-- EXPLANATION / SHPJEGIM -->
+  <section class="explain">
+    <div class="panel">
+      <h2>Guide · Udhëzues</h2>
+      <div class="lang-toggle" role="tablist" aria-label="Language">
+        <button id="btnEn" class="active" onclick="setLang('en')">English</button>
+        <button id="btnSq" onclick="setLang('sq')">Shqip</button>
+      </div>
+
+      <!-- ENGLISH -->
+      <div data-lang="en" class="show">
+        <h3>What is intrinsic value?</h3>
+        <p>Intrinsic value is the "real" part of an option's price — what it would be worth if exercised right now. For a put, it's how far the stock has fallen below the strike. If the stock is <em>above</em> the strike, intrinsic value is zero (an option can never have negative intrinsic value).</p>
+        <div class="formula">Put: Intrinsic = Strike − Stock price (minimum 0)</div>
+        <p>Example: strike 213, stock at 208.19 → intrinsic = 213 − 208.19 = <strong>$4.81</strong>.</p>
+
+        <h3>What is extrinsic value?</h3>
+        <p>Extrinsic value (also called time value) is everything in the option's price <em>above</em> intrinsic value. It's the premium paid for the <em>possibility</em> that the stock moves further before expiration. It melts away day by day (theta decay) and reaches zero at expiry.</p>
+        <div class="formula">Extrinsic = Option bid − Intrinsic value</div>
+        <p>Example: bid 7.80, intrinsic 4.81 → extrinsic = <strong>$2.99</strong>.</p>
+
+        <h3>Why does extrinsic value protect you from early assignment?</h3>
+        <p>A put holder who exercises early receives only the intrinsic value — and <strong>throws away all the extrinsic value</strong>. If there's $2.99 of extrinsic left, exercising means burning $299 per contract for no reason; selling the put on the market is always better for them. That's why extrinsic value is your "assignment cushion": as long as it's meaningfully positive, nobody rational exercises early.</p>
+
+        <h3>When is it dangerous, and when is it just information?</h3>
+        <div class="zones">
+          <div class="zone safe"><strong>Safe — extrinsic above $0.50</strong>Just information. Early assignment would cost the holder real money, so it essentially never happens. Check the number daily, nothing more.</div>
+          <div class="zone caution"><strong>Caution — extrinsic $0.15–0.50</strong>The cushion is thinning, usually because the option is deep in the money or expiry is days away. Start deciding now: roll, close, or accept the shares.</div>
+          <div class="zone danger"><strong>Danger — extrinsic near $0</strong>The option trades at "parity." The holder loses almost nothing by exercising, so assignment can happen any night. If you don't want the shares, act today.</div>
+        </div>
+        <p style="margin-top:14px">Two more triggers to remember: <strong>dividends</strong> can cause early exercise around the ex-dividend date (mostly for calls), and <strong>expiration itself</strong> — any option in the money at expiry is assigned automatically, no matter how much extrinsic it had the week before.</p>
+      </div>
+
+      <!-- ALBANIAN -->
+      <div data-lang="sq">
+        <h3>Çfarë është vlera intrinsike (e brendshme)?</h3>
+        <p>Vlera intrinsike është pjesa "reale" e çmimit të opsionit — sa do të vlente nëse ushtrohej (ekzekutohej) tani menjëherë. Për një put, është sa poshtë çmimit strike ka rënë aksioni. Nëse aksioni është <em>mbi</em> strike, vlera intrinsike është zero (një opsion nuk mund të ketë kurrë vlerë intrinsike negative).</p>
+        <div class="formula">Put: Intrinsike = Strike − Çmimi i aksionit (minimumi 0)</div>
+        <p>Shembull: strike 213, aksioni në 208.19 → intrinsike = 213 − 208.19 = <strong>$4.81</strong>.</p>
+
+        <h3>Çfarë është vlera ekstrinsike (vlera kohore)?</h3>
+        <p>Vlera ekstrinsike (e quajtur edhe vlera kohore) është gjithçka në çmimin e opsionit <em>mbi</em> vlerën intrinsike. Është premiumi që paguhet për <em>mundësinë</em> që aksioni të lëvizë më tej para skadimit. Ajo shkrihet dita-ditës (theta decay) dhe arrin zero në ditën e skadimit.</p>
+        <div class="formula">Ekstrinsike = Bid i opsionit − Vlera intrinsike</div>
+        <p>Shembull: bid 7.80, intrinsike 4.81 → ekstrinsike = <strong>$2.99</strong>.</p>
+
+        <h3>Pse të mbron vlera ekstrinsike nga ekzekutimi i hershëm?</h3>
+        <p>Mbajtësi i një put-i që e ushtron herët merr vetëm vlerën intrinsike — dhe <strong>humbet të gjithë vlerën ekstrinsike</strong>. Nëse kanë mbetur $2.99 ekstrinsike, ushtrimi do të thotë të djegësh $299 për kontratë pa asnjë arsye; shitja e put-it në treg është gjithmonë më e mirë për të. Prandaj vlera ekstrinsike është "jastëku" yt mbrojtës: përderisa është dukshëm pozitive, askush racional nuk ushtron herët.</p>
+
+        <h3>Kur është rrezik dhe kur është vetëm informacion?</h3>
+        <div class="zones">
+          <div class="zone safe"><strong>E sigurt — ekstrinsike mbi $0.50</strong>Vetëm informacion. Ekzekutimi i hershëm do t'i kushtonte mbajtësit para të vërteta, kështu që praktikisht nuk ndodh kurrë. Kontrolloje numrin çdo ditë, asgjë më shumë.</div>
+          <div class="zone caution"><strong>Kujdes — ekstrinsike $0.15–0.50</strong>Jastëku po hollohet, zakonisht sepse opsioni është thellë in-the-money ose skadimi është vetëm disa ditë larg. Fillo të vendosësh tani: roll, mbylle pozicionin, ose prano aksionet.</div>
+          <div class="zone danger"><strong>Rrezik — ekstrinsike afër $0</strong>Opsioni tregtohet në "paritet." Mbajtësi nuk humbet pothuajse asgjë duke e ushtruar, kështu që ekzekutimi mund të ndodhë çdo natë. Nëse nuk i do aksionet, vepro sot.</div>
+        </div>
+        <p style="margin-top:14px">Dy shkaktarë të tjerë për t'u mbajtur mend: <strong>dividendët</strong> mund të shkaktojnë ushtrim të hershëm rreth datës ex-dividend (kryesisht për call-et), dhe <strong>vetë skadimi</strong> — çdo opsion që është in-the-money në skadim ekzekutohet automatikisht, pavarësisht sa ekstrinsike kishte një javë më parë.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+function setLang(l){
+  document.getElementById('btnEn').classList.toggle('active', l==='en');
+  document.getElementById('btnSq').classList.toggle('active', l==='sq');
+  document.querySelectorAll('[data-lang]').forEach(el => el.classList.toggle('show', el.dataset.lang===l));
+}
+</script>
+<script>
+let optType = 'put';
+
+function setType(t){
+  optType = t;
+  document.getElementById('btnPut').classList.toggle('active', t==='put');
+  document.getElementById('btnCall').classList.toggle('active', t==='call');
+  calc();
+}
+
+function fmt(n){ return (n<0?'−':'') + '$' + Math.abs(n).toFixed(2); }
+
+function calc(){
+  const S = parseFloat(document.getElementById('stock').value);
+  const K = parseFloat(document.getElementById('strike').value);
+  const bid = parseFloat(document.getElementById('bid').value);
+  const prem = parseFloat(document.getElementById('premium').value);
+  const expVal = document.getElementById('expiry').value;
+
+  if(isNaN(S)||isNaN(K)||isNaN(bid)) return;
+
+  const intrinsic = optType==='put' ? Math.max(K - S, 0) : Math.max(S - K, 0);
+  const extrinsic = bid - intrinsic;
+  const itm = intrinsic > 0;
+
+  // moneyness
+  const moneyEl = document.getElementById('moneyness');
+  const pct = ((optType==='put' ? K - S : S - K) / S * 100);
+  if(itm){ moneyEl.textContent = 'ITM'; moneyEl.className='v mono neg'; }
+  else if(Math.abs(pct) < 0.5){ moneyEl.textContent = 'ATM'; moneyEl.className='v mono mid'; }
+  else { moneyEl.textContent = 'OTM'; moneyEl.className='v mono pos'; }
+  document.getElementById('moneyDesc').textContent =
+    (itm ? pct.toFixed(1)+'% in the money' : Math.abs(pct).toFixed(1)+'% out of the money');
+
+  // intrinsic
+  document.getElementById('intrinsicFormula').textContent =
+    optType==='put' ? `max(${K.toFixed(2)} − ${S.toFixed(2)}, 0)` : `max(${S.toFixed(2)} − ${K.toFixed(2)}, 0)`;
+  document.getElementById('intrinsic').textContent = fmt(intrinsic);
+
+  // extrinsic
+  const exEl = document.getElementById('extrinsic');
+  exEl.textContent = fmt(extrinsic);
+  exEl.className = 'v mono ' + (extrinsic > 0.5 ? 'pos' : extrinsic >= 0 ? 'mid' : 'neg');
+  document.getElementById('arbNote').style.display = extrinsic < -0.01 ? 'block' : 'none';
+
+  // breakeven
+  if(!isNaN(prem)){
+    const be = optType==='put' ? K - prem : K + prem;
+    document.getElementById('breakeven').textContent = fmt(be);
+    document.getElementById('beFormula').textContent =
+      optType==='put' ? `strike − premium = ${K.toFixed(2)} − ${prem.toFixed(2)}` : `strike + premium = ${K.toFixed(2)} + ${prem.toFixed(2)}`;
+    const dist = optType==='put' ? S - be : be - S;
+    const dEl = document.getElementById('distance');
+    dEl.textContent = (dist>=0?'+':'') + dist.toFixed(2) + ' (' + (dist/S*100).toFixed(2) + '%)';
+    dEl.className = 'v mono ' + (dist >= 0 ? 'pos' : 'neg');
+
+    const pl = (prem - bid) * 100;
+    const plEl = document.getElementById('pl');
+    plEl.textContent = fmt(pl);
+    plEl.className = 'v mono ' + (pl >= 0 ? 'pos' : 'neg');
+  }
+
+  // DTE
+  let dte = null;
+  if(expVal){
+    const today = new Date(); today.setHours(0,0,0,0);
+    const exp = new Date(expVal + 'T00:00:00');
+    dte = Math.round((exp - today) / 86400000);
+    const dteEl = document.getElementById('dte');
+    dteEl.textContent = dte + (dte===1?' day':' days');
+    dteEl.className = 'v mono ' + (dte <= 2 ? 'neg' : dte <= 5 ? 'mid' : '');
+  }
+
+  // gauge: 0 → $3+ mapped to 0–100%, zones: <0.5 = 12-30%, scaled
+  const cushion = Math.max(extrinsic, 0);
+  let pctPos;
+  if(cushion <= 0.5){ pctPos = (cushion / 0.5) * 30; }
+  else { pctPos = 30 + Math.min((cushion - 0.5) / 2.5, 1) * 70; }
+  document.getElementById('needle').style.left = Math.min(Math.max(pctPos,0),100) + '%';
+  document.getElementById('gaugeLabel').textContent = fmt(cushion) + ' extrinsic';
+
+  // verdict
+  const v = document.getElementById('verdict');
+  const vTitle = v.querySelector('strong');
+  const vBody = v.querySelector('span');
+  v.className = 'verdict';
+
+  if(extrinsic < -0.01){
+    v.classList.add('warn');
+    vTitle.textContent = 'Stale data';
+    vBody.textContent = 'Negative extrinsic means the stock price and option quote are from different times. Pull both simultaneously, then re-check.';
+  } else if(!itm){
+    vTitle.textContent = 'No assignment risk';
+    vBody.textContent = 'The option is out of the money — exercising would lose the holder money. If it stays OTM through expiry, it expires worthless and you keep the full premium.';
+  } else if(extrinsic > 0.5){
+    vTitle.textContent = 'Early assignment unlikely';
+    vBody.textContent = 'There is ' + fmt(extrinsic) + ' of extrinsic value. A holder exercising early would forfeit ' + fmt(extrinsic*100).replace('$','$') + ' per contract, so they would sell instead. Keep monitoring daily' + (dte!==null && dte<=5 ? ' — only ' + dte + ' days left, decay accelerates now.' : '.');
+  } else if(extrinsic > 0.15){
+    v.classList.add('warn');
+    vTitle.textContent = 'Assignment risk rising';
+    vBody.textContent = 'Extrinsic has compressed to ' + fmt(extrinsic) + '. You are approaching the zone where early exercise becomes rational. Decide soon: roll out (and possibly down), close, or accept assignment.';
+  } else {
+    v.classList.add('danger');
+    vTitle.textContent = 'Assignment is a live possibility';
+    vBody.textContent = 'Extrinsic is ' + fmt(extrinsic) + ' — near zero. The option trades at parity, and a holder loses almost nothing by exercising. Treat assignment as imminent; act now if you do not want the shares.';
+  }
+}
+
+document.querySelectorAll('input').forEach(el => el.addEventListener('input', calc));
+calc();
+</script>
+</body>
+</html>
